@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ЧМ 2026 — Планировщик работ на сети</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;color:#1a1a1a;background:#f0f2f5;padding:1rem}
+
+/* Header */
+.header{background:#fff;border-radius:10px;border:1px solid #e0e0e0;padding:1rem 1.2rem;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.header h1{font-size:18px;font-weight:700;display:flex;align-items:center;gap:8px}
+.header-right{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn-add-work{background:#1D9E75;color:#fff;border:none;padding:8px 16px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px}
+.btn-add-work:hover{background:#0F6E56}
+.btn-clear{background:#fff;color:#666;border:1px solid #ddd;padding:7px 12px;border-radius:7px;font-size:13px;cursor:pointer}
+.btn-clear:hover{background:#fef2f2;color:#c0392b;border-color:#e8a0a0}
+
+/* Stats */
+.stats-bar{display:flex;gap:10px;margin-bottom:1rem;flex-wrap:wrap}
+.stat{background:#fff;border-radius:8px;border:1px solid #e0e0e0;padding:10px 16px;flex:1;min-width:100px}
+.stat-val{font-size:22px;font-weight:700}
+.stat-lbl{font-size:11px;color:#888;margin-top:2px}
+.stat-danger{background:#FFF5F5;border-color:#f5c6c6}
+.stat-danger .stat-val{color:#c0392b}
+
+/* Works list panel */
+.works-panel{background:#fff;border-radius:10px;border:1px solid #e0e0e0;padding:1rem 1.2rem;margin-bottom:1rem}
+.works-panel-title{font-size:13px;font-weight:600;color:#444;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.works-list{display:flex;flex-wrap:wrap;gap:8px}
+.work-chip{display:inline-flex;align-items:center;gap:6px;background:#EAF7F2;border:1px solid #5DCAA5;border-radius:20px;padding:4px 10px 4px 12px;font-size:12px;color:#0F6E56}
+.work-chip .wnum{font-weight:700}
+.work-chip .wtime{color:#1D9E75;font-size:11px}
+.work-chip .wdel{cursor:pointer;font-size:16px;color:#7ECDB8;margin-left:2px;line-height:1}
+.work-chip .wdel:hover{color:#c0392b}
+.no-works{font-size:12px;color:#aaa;font-style:italic}
+
+/* Filters */
+.filters{background:#fff;border-radius:10px;border:1px solid #e0e0e0;padding:0.7rem 1.2rem;margin-bottom:1rem;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.filters select,.filters input[type=text]{font-size:13px;padding:5px 8px;border-radius:6px;border:1px solid #ccc;background:#fff;color:#1a1a1a}
+
+/* Table */
+.table-wrap{background:#fff;border-radius:10px;border:1px solid #e0e0e0;overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font-size:11px;font-weight:600;color:#777;text-align:left;padding:8px 10px;border-bottom:1px solid #e8e8e8;white-space:nowrap;background:#fafafa}
+td{padding:7px 10px;border-bottom:1px solid #f2f2f2;vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#fafcff}
+
+/* Stage badges */
+.stage-badge{display:inline-block;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:700;white-space:nowrap}
+.gs{background:#E6F1FB;color:#0C447C}
+.r32{background:#EAF3DE;color:#27500A}
+.r16{background:#FAEEDA;color:#633806}
+.qf{background:#FBEAF0;color:#72243E}
+.sf{background:#EEEDFE;color:#3C3489}
+.fin{background:#FAECE7;color:#993C1D}
+
+/* Time display */
+.time-block{display:flex;flex-direction:column;gap:2px}
+.time-start{color:#185FA5;font-weight:700;font-size:13px}
+.time-end{color:#999;font-size:11px}
+
+/* Hype & Referee Icon */
+.hype-cell{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.referee-svg{width:28px;height:28px;overflow:visible}
+.hype-lvl{font-size:11px;font-weight:bold;color:#555;background:#eee;padding:1px 5px;border-radius:3px}
+.hype-high{background:#FEECEC;color:#c0392b}
+
+/* Conflict rows */
+.conflict-row td{background:#FFF8F8 !important}
+.conflict-row td:first-child{border-left:3px solid #E24B4A}
+
+/* Conflict work chips in table */
+.conflict-chip{display:inline-flex;align-items:center;gap:4px;background:#FEECEC;border:1px solid #F5AAAA;border-radius:12px;padding:3px 9px;font-size:11px;color:#A32D2D;margin:2px}
+.conflict-chip .cwnum{font-weight:700}
+.conflict-chip .cwtime{font-size:10px;color:#c0392b}
+.conflict-chip-icon{font-size:12px}
+.no-conflict{font-size:11px;color:#ccc;font-style:italic}
+
+/* Modal */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:200;align-items:flex-start;justify-content:center;padding-top:80px}
+.modal-bg.show{display:flex}
+.modal{background:#fff;border-radius:14px;padding:1.5rem;width:440px;max-width:95vw;box-shadow:0 12px 40px rgba(0,0,0,0.18)}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem}
+.modal-header h3{font-size:17px;font-weight:700}
+.modal-close{background:none;border:none;font-size:22px;cursor:pointer;color:#aaa;line-height:1}
+.modal-close:hover{color:#333}
+.field-row{margin-bottom:12px}
+.field-label{font-size:12px;color:#666;margin-bottom:5px;display:block;font-weight:600}
+.modal input[type=text],.modal input[type=datetime-local]{width:100%;font-size:13px;padding:8px 10px;border-radius:7px;border:1px solid #ccc;color:#1a1a1a;font-family:inherit}
+.modal input:focus{outline:none;border-color:#1D9E75;box-shadow:0 0 0 2px rgba(29,158,117,0.12)}
+.time-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.modal-btns{display:flex;gap:8px;margin-top:16px}
+.modal-btns button{flex:1;padding:9px;border-radius:8px;font-size:14px;cursor:pointer;font-weight:600;border:none}
+.btn-save{background:#1D9E75;color:#fff}
+.btn-save:hover{background:#0F6E56}
+.btn-cancel2{background:#f0f0f0;color:#555}
+.btn-cancel2:hover{background:#e0e0e0}
+.modal-hint{font-size:11px;color:#aaa;margin-top:8px;text-align:center}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>⚽ ЧМ 2026 — Расписание и интеграция сетевых окон</h1>
+  <div class="header-right">
+    <button class="btn-add-work" onclick="openAddWork()">＋ Добавить работу</button>
+    <button class="btn-clear" onclick="clearAll()">🗑 Очистить всё</button>
+  </div>
+</div>
+
+<div class="stats-bar">
+  <div class="stat"><div class="stat-val" id="statMatches">104</div><div class="stat-lbl">Матчей всего</div></div>
+  <div class="stat"><div class="stat-val" id="statWorks">0</div><div class="stat-lbl">Работ добавлено</div></div>
+  <div class="stat" id="statConflictCard"><div class="stat-val" id="statConflicts">0</div><div class="stat-lbl">Пересечений</div></div>
+</div>
+
+<div class="works-panel">
+  <div class="works-panel-title">📋 Запланированные работы <span style="font-weight:400;color:#aaa;font-size:12px">(автоматически подсвечивают конфликты на временной шкале матчей)</span></div>
+  <div class="works-list" id="worksList"><span class="no-works">Работы ещё не добавлены</span></div>
+</div>
+
+<div class="filters">
+  <select id="filterStage" onchange="render()">
+    <option value="">Все этапы</option>
+    <option value="gs">Групповой этап</option>
+    <option value="r32">1/32 финала</option>
+    <option value="r16">1/16 финала</option>
+    <option value="qf">Четвертьфинал</option>
+    <option value="sf">Полуфинал</option>
+    <option value="fin">Финал</option>
+  </select>
+  <select id="filterConflict" onchange="render()">
+    <option value="">Все матчи</option>
+    <option value="conflict">Только пересечения</option>
+  </select>
+  <input type="text" id="searchInput" placeholder="Поиск по командам..." oninput="render()" style="width:180px">
+</div>
+
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+  <th style="width:95px">Дата</th>
+  <th style="width:125px">Время (GMT+5)</th>
+  <th>Матч</th>
+  <th style="width:55px">Этап</th>
+  <th style="width:105px">Ажиотаж</th>
+  <th style="width:130px">Город</th>
+  <th>Пересечения с работами</th>
+</tr>
+</thead>
+<tbody id="tbody"></tbody>
+</table>
+</div>
+
+<div class="modal-bg" id="modalBg">
+<div class="modal">
+  <div class="modal-header">
+    <h3>Добавить сетевую работу</h3>
+    <button class="modal-close" onclick="closeModal()">×</button>
+  </div>
+  <div class="field-row">
+    <label class="field-label">№ работы / название наряда</label>
+    <input type="text" id="workNum" placeholder="напр., CRQ-9941 или Замена линейной карты">
+  </div>
+  <div class="time-row">
+    <div class="field-row">
+      <label class="field-label">Начало работ (GMT+5)</label>
+      <input type="datetime-local" id="workStart">
+    </div>
+    <div class="field-row">
+      <label class="field-label">Окончание работ (GMT+5)</label>
+      <input type="datetime-local" id="workEnd">
+    </div>
+  </div>
+  <div class="modal-btns">
+    <button class="btn-cancel2" onclick="closeModal()">Отмена</button>
+    <button class="btn-save" onclick="saveWork()">Добавить работу</button>
+  </div>
+  <div class="modal-hint">Система сопоставит дату и время с расписанием трансляций автоматическим парсингом.</div>
+</div>
+</div>
+
+<script>
+// Расписание матчей ЧМ-2026. Время старта указано в явном текстовом виде без часовых поясов, чтобы избежать сдвигов.
+const matches = [
+  {id:1,  year:2026, month:6, day:12, hour:0,  minute:0,  date:"12.06 Пт", gmt5:"00:00", teams:"Мексика – ЮАР",                   stage:"gs",  hype:8,  venue:"Мехико"},
+  {id:2,  year:2026, month:6, day:12, hour:7,  minute:0,  date:"12.06 Пт", gmt5:"07:00", teams:"Ю. Корея – Чехия",                stage:"gs",  hype:5,  venue:"Канзас-Сити"},
+  {id:3,  year:2026, month:6, day:13, hour:0,  minute:0,  date:"13.06 Сб", gmt5:"00:00", teams:"Канада – Босния",                  stage:"gs",  hype:6,  venue:"Торонто"},
+  {id:4,  year:2026, month:6, day:13, hour:6,  minute:0,  date:"13.06 Сб", gmt5:"06:00", teams:"США – Парагвай",                   stage:"gs",  hype:7,  venue:"Лос-Анджелес"},
+  {id:5,  year:2026, month:6, day:14, hour:0,  minute:0,  date:"14.06 Вс", gmt5:"00:00", teams:"Катар – Швейцария",                stage:"gs",  hype:4,  venue:"Санта-Клара"},
+  {id:6,  year:2026, month:6, day:14, hour:3,  minute:0,  date:"14.06 Вс", gmt5:"03:00", teams:"Бразилия – Марокко",               stage:"gs",  hype:10, venue:"Нью-Йорк"},
+  {id:7,  year:2026, month:6, day:14, hour:6,  minute:0,  date:"14.06 Вс", gmt5:"06:00", teams:"Гаити – Шотландия",                stage:"gs",  hype:3,  venue:"Атланта"},
+  {id:8,  year:2026, month:6, day:14, hour:9,  minute:0,  date:"14.06 Вс", gmt5:"09:00", teams:"Австралия – Турция",               stage:"gs",  hype:6,  venue:"Даллас"},
+  {id:9,  year:2026, month:6, day:14, hour:22, minute:0,  date:"14.06 Вс", gmt5:"22:00", teams:"Германия – Кюрасао",               stage:"gs",  hype:7,  venue:"Филадельфия"},
+  {id:10, year:2026, month:6, day:15, hour:1,  minute:0,  date:"15.06 Пн", gmt5:"01:00", teams:"Нидерланды – Япония",              stage:"gs",  hype:9,  venue:"Сиэтл"},
+  {id:11, year:2026, month:6, day:15, hour:4,  minute:0,  date:"15.06 Пн", gmt5:"04:00", teams:"Кот-д'Ивуар – Эквадор",           stage:"gs",  hype:5,  venue:"Майами"},
+  {id:12, year:2026, month:6, day:15, hour:7,  minute:0,  date:"15.06 Пн", gmt5:"07:00", teams:"Швеция – Тунис",                   stage:"gs",  hype:5,  venue:"Хьюстон"},
+  {id:13, year:2026, month:6, day:15, hour:21, minute:0,  date:"15.06 Пн", gmt5:"21:00", teams:"Испания – Кабо-Верде",             stage:"gs",  hype:8,  venue:"Атланта"},
+  {id:14, year:2026, month:6, day:16, hour:0,  minute:0,  date:"16.06 Вт", gmt5:"00:00", teams:"Бельгия – Египет",                 stage:"gs",  hype:7,  venue:"Канзас-Сити"},
+  {id:15, year:2026, month:6, day:16, hour:3,  minute:0,  date:"16.06 Вт", gmt5:"03:00", teams:"Саудовская Аравия – Уругвай",      stage:"gs",  hype:7,  venue:"Бостон"},
+  {id:16, year:2026, month:6, day:16, hour:6,  minute:0,  date:"16.06 Вт", gmt5:"06:00", teams:"Иран – Новая Зеландия",            stage:"gs",  hype:4,  venue:"Лос-Анджелес"},
+  {id:17, year:2026, month:6, day:17, hour:0,  minute:0,  date:"17.06 Ср", gmt5:"00:00", teams:"Франция – Сенегал",                stage:"gs",  hype:9,  venue:"Нью-Йорк"},
+  {id:18, year:2026, month:6, day:17, hour:3,  minute:0,  date:"17.06 Ср", gmt5:"03:00", teams:"Ирак – Норвегия",                  stage:"gs",  hype:5,  venue:"Бостон"},
+  {id:19, year:2026, month:6, day:17, hour:6,  minute:0,  date:"17.06 Ср", gmt5:"06:00", teams:"Аргентина – Алжир",                stage:"gs",  hype:9,  venue:"Майами"},
+  {id:20, year:2026, month:6, day:17, hour:9,  minute:0,  date:"17.06 Ср", gmt5:"09:00", teams:"Австрия – Иордания",               stage:"gs",  hype:4,  venue:"Лос-Анджелес"},
+  {id:21, year:2026, month:6, day:17, hour:22, minute:0,  date:"17.06 Ср", gmt5:"22:00", teams:"Португалия – Конго ДР",            stage:"gs",  hype:8,  venue:"Ванкувер"},
+  {id:22, year:2026, month:6, day:18, hour:1,  minute:0,  date:"18.06 Чт", gmt5:"01:00", teams:"Англия – Хорватия",                stage:"gs",  hype:10, venue:"Даллас"},
+  {id:23, year:2026, month:6, day:18, hour:4,  minute:0,  date:"18.06 Чт", gmt5:"04:00", teams:"Гана – Панама",                    stage:"gs",  hype:5,  venue:"Торонто"},
+  {id:24, year:2026, month:6, day:18, hour:7,  minute:0,  date:"18.06 Чт", gmt5:"07:00", teams:"Узбекистан – Колумбия",            stage:"gs",  hype:8,  venue:"Сиэтл"},
+  {id:25, year:2026, month:6, day:18, hour:21, minute:0,  date:"18.06 Чт", gmt5:"21:00", teams:"Чехия – ЮАР",                      stage:"gs",  hype:5,  venue:"Атланта"},
+  {id:26, year:2026, month:6, day:19, hour:0,  minute:0,  date:"19.06 Пт", gmt5:"00:00", teams:"Швейцария – Босния",               stage:"gs",  hype:6,  venue:"Хьюстон"},
+  {id:27, year:2026, month:6, day:19, hour:3,  minute:0,  date:"19.06 Пт", gmt5:"03:00", teams:"Канада – Катар",                   stage:"gs",  hype:6,  venue:"Торонто"},
+  {id:28, year:2026, month:6, day:19, hour:6,  minute:0,  date:"19.06 Пт", gmt5:"06:00", teams:"Мексика – Ю. Корея",               stage:"gs",  hype:8,  venue:"Гвадалахара"},
+  {id:29, year:2026, month:6, day:20, hour:0,  minute:0,  date:"20.06 Сб", gmt5:"00:00", teams:"США – Австралия",                  stage:"gs",  hype:8,  venue:"Лос-Анджелес"},
+  {id:30, year:2026, month:6, day:20, hour:3,  minute:0,  date:"20.06 Сб", gmt5:"03:00", teams:"Шотландия – Марокко",              stage:"gs",  hype:6,  venue:"Атланта"},
+  {id:31, year:2026, month:6, day:20, hour:6,  minute:0,  date:"20.06 Сб", gmt5:"06:00", teams:"Бразилия – Гаити",                 stage:"gs",  hype:8,  venue:"Нью-Йорк"},
+  {id:32, year:2026, month:6, day:20, hour:9,  minute:0,  date:"20.06 Сб", gmt5:"09:00", teams:"Турция – Парагвай",                stage:"gs",  hype:6,  venue:"Майами"},
+  {id:33, year:2026, month:6, day:20, hour:22, minute:0,  date:"20.06 Сб", gmt5:"22:00", teams:"Нидерланды – Швеция",              stage:"gs",  hype:9,  venue:"Бостон"},
+  {id:34, year:2026, month:6, day:21, hour:1,  minute:0,  date:"21.06 Вс", gmt5:"01:00", teams:"Германия – Кот-д'Ивуар",          stage:"gs",  hype:8,  venue:"Даллас"},
+  {id:35, year:2026, month:6, day:21, hour:7,  minute:0,  date:"21.06 Вс", gmt5:"07:00", teams:"Эквадор – Кюрасао",               stage:"gs",  hype:4,  venue:"Хьюстон"},
+  {id:36, year:2026, month:6, day:21, hour:9,  minute:0,  date:"21.06 Вс", gmt5:"09:00", teams:"Тунис – Япония",                   stage:"gs",  hype:5,  venue:"Канзас-Сити"},
+  {id:37, year:2026, month:6, day:21, hour:21, minute:0,  date:"21.06 Вс", gmt5:"21:00", teams:"Испания – Саудовская Аравия",      stage:"gs",  hype:7,  venue:"Атланта"},
+  {id:38, year:2026, month:6, day:22, hour:0,  minute:0,  date:"22.06 Пн", gmt5:"00:00", teams:"Бельгия – Иран",                   stage:"gs",  hype:6,  venue:"Сиэтл"},
+  {id:39, year:2026, month:6, day:22, hour:3,  minute:0,  date:"22.06 Пн", gmt5:"03:00", teams:"Уругвай – Кабо-Верде",             stage:"gs",  hype:6,  venue:"Лос-Анджелес"},
+  {id:40, year:2026, month:6, day:22, hour:6,  minute:0,  date:"22.06 Пн", gmt5:"06:00", teams:"Новая Зеландия – Египет",          stage:"gs",  hype:4,  venue:"Санта-Клара"},
+  {id:41, year:2026, month:6, day:22, hour:22, minute:0,  date:"22.06 Пн", gmt5:"22:00", teams:"Аргентина – Австрия",              stage:"gs",  hype:9,  venue:"Майами"},
+  {id:42, year:2026, month:6, day:23, hour:2,  minute:0,  date:"23.06 Вт", gmt5:"02:00", teams:"Франция – Ирак",                   stage:"gs",  hype:8,  venue:"Нью-Йорк"},
+  {id:43, year:2026, month:6, day:23, hour:5,  minute:0,  date:"23.06 Вт", gmt5:"05:00", teams:"Норвегия – Сенегал",               stage:"gs",  hype:6,  venue:"Филадельфия"},
+  {id:44, year:2026, month:6, day:23, hour:8,  minute:0,  date:"23.06 Вт", gmt5:"08:00", teams:"Иордания – Алжир",                 stage:"gs",  hype:4,  venue:"Канзас-Сити"},
+  {id:45, year:2026, month:6, day:23, hour:22, minute:0,  date:"23.06 Вт", gmt5:"22:00", teams:"Португалия – Узбекистан",          stage:"gs",  hype:8,  venue:"Бостон"},
+  {id:46, year:2026, month:6, day:24, hour:1,  minute:0,  date:"24.06 Ср", gmt5:"01:00", teams:"Англия – Гана",                    stage:"gs",  hype:8,  venue:"Торонто"},
+  {id:47, year:2026, month:6, day:24, hour:4,  minute:0,  date:"24.06 Ср", gmt5:"04:00", teams:"Панама – Хорватия",                stage:"gs",  hype:7,  venue:"Хьюстон"},
+  {id:48, year:2026, month:6, day:24, hour:7,  minute:0,  date:"24.06 Ср", gmt5:"07:00", teams:"Колумбия – Конго ДР",              stage:"gs",  hype:6,  venue:"Атланта"},
+  {id:49, year:2026, month:6, day:25, hour:0,  minute:0,  date:"25.06 Чт", gmt5:"00:00", teams:"Швейцария – Канада",               stage:"gs",  hype:7,  venue:"Ванкувер"},
+  {id:50, year:2026, month:6, day:25, hour:0,  minute:0,  date:"25.06 Чт", gmt5:"00:00", teams:"Босния – Катар",                   stage:"gs",  hype:4,  venue:"Сан-Франциско"},
+  {id:51, year:2026, month:6, day:25, hour:3,  minute:0,  date:"25.06 Чт", gmt5:"03:00", teams:"Шотландия – Бразилия",             stage:"gs",  hype:9,  venue:"Даллас"},
+  {id:52, year:2026, month:6, day:25, hour:3,  minute:0,  date:"25.06 Чт", gmt5:"03:00", teams:"Марокко – Гаити",                  stage:"gs",  hype:5,  venue:"Атланта"},
+  {id:53, year:2026, month:6, day:25, hour:6,  minute:0,  date:"25.06 Чт", gmt5:"06:00", teams:"Чехия – Мексика",                  stage:"gs",  hype:8,  venue:"Нью-Йорк"},
+  {id:54, year:2026, month:6, day:25, hour:6,  minute:0,  date:"25.06 Чт", gmt5:"06:00", teams:"ЮАР – Ю. Корея",                   stage:"gs",  hype:5,  venue:"Сиэтл"},
+  {id:55, year:2026, month:6, day:26, hour:1,  minute:0,  date:"26.06 Пт", gmt5:"01:00", teams:"Кюрасао – Кот-д'Ивуар",           stage:"gs",  hype:4,  venue:"Лос-Анджелес"},
+  {id:56, year:2026, month:6, day:26, hour:1,  minute:0,  date:"26.06 Пт", gmt5:"01:00", teams:"Эквадор – Германия",               stage:"gs",  hype:8,  venue:"Бостон"},
+  {id:57, year:2026, month:6, day:26, hour:4,  minute:0,  date:"26.06 Пт", gmt5:"04:00", teams:"Япония – Швеция",                  stage:"gs",  hype:7,  venue:"Майами"},
+  {id:58, year:2026, month:6, day:26, hour:4,  minute:0,  date:"26.06 Пт", gmt5:"04:00", teams:"Тунис – Нидерланды",               stage:"gs",  hype:8,  venue:"Хьюстон"},
+  {id:59, year:2026, month:6, day:26, hour:7,  minute:0,  date:"26.06 Пт", gmt5:"07:00", teams:"Турция – США",                     stage:"gs",  hype:8,  venue:"Канзас-Сити"},
+  {id:60, year:2026, month:6, day:26, hour:7,  minute:0,  date:"26.06 Пт", gmt5:"07:00", teams:"Парагвай – Австралия",             stage:"gs",  hype:5,  venue:"Филадельфия"},
+  {id:61, year:2026, month:6, day:27, hour:0,  minute:0,  date:"27.06 Сб", gmt5:"00:00", teams:"Норвегия – Франция",               stage:"gs",  hype:9,  venue:"Нью-Йорк"},
+  {id:62, year:2026, month:6, day:27, hour:0,  minute:0,  date:"27.06 Сб", gmt5:"00:00", teams:"Сенегал – Ирак",                   stage:"gs",  hype:5,  venue:"Бостон"},
+  {id:63, year:2026, month:6, day:27, hour:5,  minute:0,  date:"27.06 Сб", gmt5:"05:00", teams:"Кабо-Верде – Саудовская Аравия",   stage:"gs",  hype:6,  venue:"Атланта"},
+  {id:64, year:2026, month:6, day:27, hour:5,  minute:0,  date:"27.06 Сб", gmt5:"05:00", teams:"Уругвай – Испания",                stage:"gs",  hype:9,  venue:"Майами"},
+  {id:65, year:2026, month:6, day:27, hour:8,  minute:0,  date:"27.06 Сб", gmt5:"08:00", teams:"Египет – Иран",                    stage:"gs",  hype:5,  venue:"Даллас"},
+  {id:66, year:2026, month:6, day:27, hour:8,  minute:0,  date:"27.06 Сб", gmt5:"08:00", teams:"Новая Зеландия – Бельгия",         stage:"gs",  hype:7,  venue:"Сиэтл"},
+  {id:67, year:2026, month:6, day:28, hour:2,  minute:0,  date:"28.06 Вс", gmt5:"02:00", teams:"Панама – Англия",                  stage:"gs",  hype:8,  venue:"Торонто"},
+  {id:68, year:2026, month:6, day:28, hour:2,  minute:0,  date:"28.06 Вс", gmt5:"02:00", teams:"Хорватия – Гана",                  stage:"gs",  hype:6,  venue:"Лос-Анджелес"},
+  {id:69, year:2026, month:6, day:28, hour:4,  minute:30, date:"28.06 Вс", gmt5:"04:30", teams:"Колумбия – Португалия",            stage:"gs",  hype:9,  venue:"Хьюстон"},
+  {id:70, year:2026, month:6, day:28, hour:4,  minute:30, date:"28.06 Вс", gmt5:"04:30", teams:"Конго ДР – Узбекистан",            stage:"gs",  hype:7,  venue:"Канзас-Сити"},
+  {id:71, year:2026, month:6, day:28, hour:7,  minute:0,  date:"28.06 Вс", gmt5:"07:00", teams:"Алжир – Австрия",                  stage:"gs",  hype:5,  venue:"Бостон"},
+  {id:72, year:2026, month:6, day:28, hour:7,  minute:0,  date:"28.06 Вс", gmt5:"07:00", teams:"Иордания – Аргентина",             stage:"gs",  hype:9,  venue:"Санта-Клара"},
+  // Round of 32
+  {id:73, year:2026, month:6, day:29, hour:0,  minute:0,  date:"29.06 Пн", gmt5:"00:00", teams:"1/32: матч 1",  stage:"r32", hype:7, venue:"TBD"},
+  {id:74, year:2026, month:6, day:29, hour:3,  minute:0,  date:"29.06 Пн", gmt5:"03:00", teams:"1/32: матч 2",  stage:"r32", hype:7, venue:"TBD"},
+  {id:75, year:2026, month:6, day:29, hour:6,  minute:0,  date:"29.06 Пн", gmt5:"06:00", teams:"1/32: матч 3",  stage:"r32", hype:7, venue:"TBD"},
+  {id:76, year:2026, month:6, day:30, hour:0,  minute:0,  date:"30.06 Вт", gmt5:"00:00", teams:"1/32: матч 4",  stage:"r32", hype:7, venue:"TBD"},
+  {id:77, year:2026, month:6, day:30, hour:3,  minute:0,  date:"30.06 Вт", gmt5:"03:00", teams:"1/32: матч 5",  stage:"r32", hype:7, venue:"TBD"},
+  {id:78, year:2026, month:6, day:30, hour:6,  minute:0,  date:"30.06 Вт", gmt5:"06:00", teams:"1/32: матч 6",  stage:"r32", hype:7, venue:"TBD"},
+  {id:79, year:2026, month:7, day:1,  hour:0,  minute:0,  date:"01.07 Ср", gmt5:"00:00", teams:"1/32: матч 7",  stage:"r32", hype:7, venue:"TBD"},
+  {id:80, year:2026, month:7, day:1,  hour:3,  minute:0,  date:"01.07 Ср", gmt5:"03:00", teams:"1/32: матч 8",  stage:"r32", hype:7, venue:"TBD"},
+  {id:81, year:2026, month:7, day:1,  hour:6,  minute:0,  date:"01.07 Ср", gmt5:"06:00", teams:"1/32: матч 9",  stage:"r32", hype:7, venue:"TBD"},
+  {id:82, year:2026, month:7, day:2,  hour:0,  minute:0,  date:"02.07 Чт", gmt5:"00:00", teams:"1/32: матч 10", stage:"r32", hype:7, venue:"TBD"},
+  {id:83, year:2026, month:7, day:2,  hour:3,  minute:0,  date:"02.07 Чт", gmt5:"03:00", teams:"1/32: матч 11", stage:"r32", hype:7, venue:"TBD"},
+  {id:84, year:2026, month:7, day:2,  hour:6,  minute:0,  date:"02.07 Чт", gmt5:"06:00", teams:"1/32: матч 12", stage:"r32", hype:7, venue:"TBD"},
+  {id:85, year:2026, month:7, day:3,  hour:0,  minute:0,  date:"03.07 Пт", gmt5:"00:00", teams:"1/32: матч 13", stage:"r32", hype:7, venue:"TBD"},
+  {id:86, year:2026, month:7, day:3,  hour:3,  minute:0,  date:"03.07 Пт", gmt5:"03:00", teams:"1/32: матч 14", stage:"r32", hype:7, venue:"TBD"},
+  {id:87, year:2026, month:7, day:3,  hour:6,  minute:0,  date:"03.07 Пт", gmt5:"06:00", teams:"1/32: матч 15", stage:"r32", hype:7, venue:"TBD"},
+  {id:88, year:2026, month:7, day:4,  hour:0,  minute:0,  date:"04.07 Сб", gmt5:"00:00", teams:"1/32: матч 16", stage:"r32", hype:7, venue:"TBD"},
+  // Round of 16
+  {id:89, year:2026, month:7, day:4,  hour:21, minute:0,  date:"04.07 Сб", gmt5:"21:00", teams:"1/16: матч 1",  stage:"r16", hype:8, venue:"TBD"},
+  {id:90, year:2026, month:7, day:5,  hour:0,  minute:0,  date:"05.07 Вс", gmt5:"00:00", teams:"1/16: матч 2",  stage:"r16", hype:8, venue:"TBD"},
+  {id:91, year:2026, month:7, day:5,  hour:21, minute:0,  date:"05.07 Вс", gmt5:"21:00", teams:"1/16: матч 3",  stage:"r16", hype:8, venue:"TBD"},
+  {id:92, year:2026, month:7, day:6,  hour:0,  minute:0,  date:"06.07 Пн", gmt5:"00:00", teams:"1/16: матч 4",  stage:"r16", hype:8, venue:"TBD"},
+  {id:93, year:2026, month:7, day:6,  hour:21, minute:0,  date:"06.07 Пн", gmt5:"21:00", teams:"1/16: матч 5",  stage:"r16", hype:8, venue:"TBD"},
+  {id:94, year:2026, month:7, day:7,  hour:0,  minute:0,  date:"07.07 Вт", gmt5:"00:00", teams:"1/16: матч 6",  stage:"r16", hype:8, venue:"TBD"},
+  {id:95, year:2026, month:7, day:7,  hour:21, minute:0,  date:"07.07 Вт", gmt5:"21:00", teams:"1/16: матч 7",  stage:"r16", hype:8, venue:"TBD"},
+  {id:96, year:2026, month:7, day:8,  hour:0,  minute:0,  date:"08.07 Ср", gmt5:"00:00", teams:"1/16: матч 8",  stage:"r16", hype:8, venue:"TBD"},
+  // QF
+  {id:97,  year:2026, month:7, day:10, hour:0,  minute:0,  date:"10.07 Чт", gmt5:"00:00", teams:"Четвертьфинал 1", stage:"qf", hype:9, venue:"TBD"},
+  {id:98,  year:2026, month:7, day:10, hour:3,  minute:30, date:"10.07 Чт", gmt5:"03:30", teams:"Четвертьфинал 2", stage:"qf", hype:9, venue:"TBD"},
+  {id:99,  year:2026, month:7, day:11, hour:0,  minute:0,  date:"11.07 Пт", gmt5:"00:00", teams:"Четвертьфинал 3", stage:"qf", hype:9, venue:"TBD"},
+  {id:100, year:2026, month:7, day:11, hour:3,  minute:30, date:"11.07 Пт", gmt5:"03:30", teams:"Четвертьфинал 4", stage:"qf", hype:9, venue:"TBD"},
+  // SF
+  {id:101, year:2026, month:7, day:15, hour:0,  minute:0,  date:"15.07 Ср", gmt5:"00:00", teams:"Полуфинал 1",      stage:"sf", hype:10, venue:"Даллас"},
+  {id:102, year:2026, month:7, day:16, hour:0,  minute:0,  date:"16.07 Чт", gmt5:"00:00", teams:"Полуфинал 2",      stage:"sf", hype:10, venue:"Атланта"},
+  {id:103, year:2026, month:7, day:19, hour:0,  minute:0,  date:"19.07 Вс", gmt5:"00:00", teams:"Матч за 3-е место", stage:"sf", hype:8,  venue:"Майами"},
+  // Final
+  {id:104, year:2026, month:7, day:20, hour:0,  minute:0,  date:"20.07 Пн", gmt5:"00:00", teams:"🏆 ФИНАЛ",          stage:"fin", hype:10, venue:"Нью-Йорк"},
+];
+
+let works = [];
+try { works = JSON.parse(localStorage.getItem('wc26works_v4') || '[]'); } catch(e) {}
+
+// Отрисовка судьи на чистом SVG с динамическим углом поднятия руки (от 1 до 10 -> от 0 до 90 градусов)
+function getRefereeSvg(hype) {
+  const angle = ((hype - 1) / 9) * 90;
+  return `
+    <svg class="referee-svg" viewBox="0 0 64 64">
+      <circle cx="32" cy="32" r="26" fill="#1f2937" stroke="#4b5563" stroke-width="2"/>
+      <path d="M22 52 C22 42, 42 42, 42 52 Z" fill="#111827" />
+      <path d="M27 42 L27 52 M32 42 L32 52 M37 42 L37 52" stroke="#fff" stroke-width="1.5" />
+      <circle cx="32" cy="31" r="5" fill="#fed7aa" />
+      <path d="M22 43 L17 49" stroke="#111827" stroke-width="2.5" stroke-linecap="round"/>
+      <g transform="rotate(${-angle}, 36, 39)">
+        <path d="M36 39 L47 39" stroke="#111827" stroke-width="3" stroke-linecap="round"/>
+        <rect x="45" y="33" width="5" height="8" rx="1" fill="${hype >= 8 ? '#ef4444' : '#eab308'}" transform="rotate(10, 45, 33)"/>
+      </g>
+    </svg>
+  `;
+}
+
+// Перевод даты и времени матча в минуты с начала эпохи (надежный способ сравнения без таймзон)
+function getMatchTimeRange(m) {
+  // Браузерный безопасный парсинг даты
+  const startMs = Date.UTC(m.year, m.month - 1, m.day, m.hour, m.minute);
+  const endMs = startMs + (110 * 60 * 1000); // +110 минут на матч
+  return { start: startMs, end: endMs };
+}
+
+// Парсинг значения из input[type="datetime-local"] в миллисекунды локально
+function parseInputToMs(valStr) {
+  if (!valStr) return 0;
+  const parts = valStr.split('T');
+  if (parts.length < 2) return 0;
+  const dateParts = parts[0].split('-');
+  const timeParts = parts[1].split(':');
+  
+  // Парсим как локальные компоненты времени без автоматических сдвигов UTC
+  return Date.UTC(
+    parseInt(dateParts[0]),
+    parseInt(dateParts[1]) - 1,
+    parseInt(dateParts[2]),
+    parseInt(timeParts[0]),
+    parseInt(timeParts[1])
+  );
+}
+
+function formatIsoToTime(ms) {
+  const d = new Date(ms);
+  return String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0');
+}
+
+// Поиск пересечений
+function worksConflictingWith(m) {
+  const matchRange = getMatchTimeRange(m);
+
+  return works.filter(w => {
+    const workStart = parseInputToMs(w.start);
+    const workEnd = parseInputToMs(w.end);
+    if (!workStart || !workEnd) return false;
+    return workStart < matchRange.end && workEnd > matchRange.start;
+  });
+}
+
+function stageLabel(s) {
+  return {gs:'ГС', r32:'1/32', r16:'1/16', qf:'ЧФ', sf:'ПФ', fin:'Финал'}[s] || s;
+}
+
+function saveToStorage() {
+  try { localStorage.setItem('wc26works_v4', JSON.stringify(works)); } catch(e) {}
+}
+
+function formatDisplayWorkTime(valStr) {
+  if (!valStr) return '';
+  const parts = valStr.split('T');
+  if (parts.length < 2) return valStr;
+  const dateParts = parts[0].split('-');
+  return `${dateParts[2]}.${dateParts[1]} ${parts[1]}`;
+}
+
+function renderWorksList() {
+  const el = document.getElementById('worksList');
+  if (!works.length) {
+    el.innerHTML = '<span class="no-works">Работы ещё не добавлены</span>';
+    return;
+  }
+  el.innerHTML = works.map((w, i) => `
+    <span class="work-chip">
+      <span class="wnum">${w.num}</span>
+      <span class="wtime">${formatDisplayWorkTime(w.start)} – ${formatDisplayWorkTime(w.end)}</span>
+      <span class="wdel" onclick="deleteWork(${i})" title="Удалить">×</span>
+    </span>
+  `).join('');
+}
+
+function render() {
+  const stageFilter = document.getElementById('filterStage').value;
+  const conflictFilter = document.getElementById('filterConflict').value;
+  const search = document.getElementById('searchInput').value.toLowerCase();
+  const tbody = document.getElementById('tbody');
+  let html = '';
+  let totalConflicts = 0;
+
+  matches.forEach(m => {
+    if (stageFilter && m.stage !== stageFilter) return;
+    if (search && !m.teams.toLowerCase().includes(search) && !m.venue.toLowerCase().includes(search)) return;
+
+    const conflictingWorks = worksConflictingWith(m);
+    const hasConflict = conflictingWorks.length > 0;
+
+    if (conflictFilter === 'conflict' && !hasConflict) return;
+    if (hasConflict) totalConflicts++;
+
+    const matchRange = getMatchTimeRange(m);
+    const matchEndTime = formatIsoToTime(matchRange.end);
+
+    const conflictsHtml = hasConflict
+      ? conflictingWorks.map(w => {
+          const ws = w.start.split('T')[1] || '';
+          const we = w.end.split('T')[1] || '';
+          return `
+          <span class="conflict-chip">
+            <span class="conflict-chip-icon">⚠</span>
+            <span class="cwnum">${w.num}</span>
+            <span class="cwtime">${ws}–${we}</span>
+          </span>`;
+        }).join('')
+      : `<span class="no-conflict">нет пересечений</span>`;
+
+    html += `<tr class="${hasConflict ? 'conflict-row' : ''}">
+      <td style="white-space:nowrap;font-size:12px;font-weight:600">${m.date}</td>
+      <td>
+        <div class="time-block">
+          <span class="time-start">${m.gmt5}</span>
+          <span class="time-end">~${matchEndTime} (оконч.)</span>
+        </div>
+      </td>
+      <td style="font-weight:${m.stage==='fin'?'700':'400'}">${m.teams}</td>
+      <td><span class="stage-badge ${m.stage}">${stageLabel(m.stage)}</span></td>
+      <td class="hype-cell">
+        ${getRefereeSvg(m.hype)}
+        <span class="hype-lvl ${m.hype >= 8 ? 'hype-high' : ''}">lvl ${m.hype}</span>
+      </td>
+      <td style="font-size:11px;color:#999">${m.venue}</td>
+      <td>${conflictsHtml}</td>
+    </tr>`;
+  });
+
+  tbody.innerHTML = html || '<tr><td colspan="7" style="text-align:center;color:#aaa;padding:2rem">Нет матчей по фильтру</td></tr>';
+
+  document.getElementById('statWorks').textContent = works.length;
+  document.getElementById('statConflicts').textContent = totalConflicts;
+  const card = document.getElementById('statConflictCard');
+  card.className = 'stat' + (totalConflicts > 0 ? ' stat-danger' : '');
+
+  renderWorksList();
+}
+
+function openAddWork() {
+  document.getElementById('workNum').value = '';
+  document.getElementById('workStart').value = '2026-06-12T02:00';
+  document.getElementById('workEnd').value = '2026-06-12T05:00';
+  document.getElementById('modalBg').className = 'modal-bg show';
+}
+
+function closeModal() {
+  document.getElementById('modalBg').className = 'modal-bg';
+}
+
+function saveWork() {
+  const num = document.getElementById('workNum').value.trim();
+  if (!num) { document.getElementById('workNum').focus(); return; }
+  const start = document.getElementById('workStart').value;
+  const end = document.getElementById('workEnd').value;
+  
+  if (!start || !end) { alert('Укажите время начала и окончания работ!'); return; }
+  if (new Date(start) >= new Date(end)) { alert('Время окончания должно быть строго позже начала!'); return; }
+
+  works.push({ num, start, end });
+  saveToStorage();
+  closeModal();
+  render();
+}
+
+function deleteWork(idx) {
+  works.splice(idx, 1);
+  saveToStorage();
+  render();
+}
+
+function clearAll() {
+  if (!works.length) return;
+  if (!confirm('Удалить все запланированные работы?')) return;
+  works = [];
+  saveToStorage();
+  render();
+}
+
+document.getElementById('workEnd').addEventListener('keydown', e => { if (e.key === 'Enter') saveWork(); });
+document.getElementById('modalBg').addEventListener('click', e => {
+  if (e.target === document.getElementById('modalBg')) closeModal();
+});
+
+// Первичный запуск
+render();
+</script>
+</body>
+</html>
