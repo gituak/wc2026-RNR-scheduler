@@ -35,6 +35,7 @@ body{font-family:Arial,sans-serif;color:#1a1a1a;background:#f0f2f5;padding:1rem}
 .work-chip .wdel{cursor:pointer;font-size:16px;color:#7ECDB8;margin-left:2px;line-height:1}
 .work-chip .wdel:hover{color:#c0392b}
 .no-works{font-size:12px;color:#aaa;font-style:italic}
+.loading-text{font-size:12px;color:#1D9E75;font-weight:600}
 
 /* Filters */
 .filters{background:#fff;border-radius:10px;border:1px solid #e0e0e0;padding:0.7rem 1.2rem;margin-bottom:1rem;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
@@ -118,8 +119,8 @@ tr:hover td{background:#fafcff}
 </div>
 
 <div class="works-panel">
-  <div class="works-panel-title">📋 Запланированные работы <span style="font-weight:400;color:#aaa;font-size:12px">(автоматически подсвечивают конфликты на временной шкале матчей)</span></div>
-  <div class="works-list" id="worksList"><span class="no-works">Работы ещё не добавлены</span></div>
+  <div class="works-panel-title">📋 Запланированные работы <span style="font-weight:400;color:#aaa;font-size:12px">(Общая база данных команды)</span></div>
+  <div class="works-list" id="worksList"><span class="loading-text">🔄 Загрузка общей базы данных...</span></div>
 </div>
 
 <div class="filters">
@@ -159,7 +160,7 @@ tr:hover td{background:#fafcff}
 <div class="modal-bg" id="modalBg">
 <div class="modal">
   <div class="modal-header">
-    <h3>Добавить сетевую работу</h3>
+    <h3>Добавить сетевою работу</h3>
     <button class="modal-close" onclick="closeModal()">×</button>
   </div>
   <div class="field-row">
@@ -178,14 +179,16 @@ tr:hover td{background:#fafcff}
   </div>
   <div class="modal-btns">
     <button class="btn-cancel2" onclick="closeModal()">Отмена</button>
-    <button class="btn-save" onclick="saveWork()">Добавить работу</button>
+    <button class="btn-save" id="btnSaveSubmit" onclick="saveWork()">Добавить работу</button>
   </div>
-  <div class="modal-hint">Система сопоставит дату и время с расписанием трансляций автоматическим парсингом.</div>
+  <div class="modal-hint">Данные мгновенно синхронизируются со всеми инженерами команды.</div>
 </div>
 </div>
 
 <script>
-// Расписание матчей ЧМ-2026. Время старта указано в явном текстовом виде без часовых поясов, чтобы избежать сдвигов.
+// Уникальный индентификатор базы данных для вашей команды
+const DB_URL = 'https://kvdb.io/MN87Uf6f95u9Sg7v5qCg7A/wc2026_works_shared';
+
 const matches = [
   {id:1,  year:2026, month:6, day:12, hour:0,  minute:0,  date:"12.06 Пт", gmt5:"00:00", teams:"Мексика – ЮАР",                   stage:"gs",  hype:8,  venue:"Мехико"},
   {id:2,  year:2026, month:6, day:12, hour:7,  minute:0,  date:"12.06 Пт", gmt5:"07:00", teams:"Ю. Корея – Чехия",                stage:"gs",  hype:5,  venue:"Канзас-Сити"},
@@ -220,7 +223,7 @@ const matches = [
   {id:31, year:2026, month:6, day:20, hour:6,  minute:0,  date:"20.06 Сб", gmt5:"06:00", teams:"Бразилия – Гаити",                 stage:"gs",  hype:8,  venue:"Нью-Йорк"},
   {id:32, year:2026, month:6, day:20, hour:9,  minute:0,  date:"20.06 Сб", gmt5:"09:00", teams:"Турция – Парагвай",                stage:"gs",  hype:6,  venue:"Майами"},
   {id:33, year:2026, month:6, day:20, hour:22, minute:0,  date:"20.06 Сб", gmt5:"22:00", teams:"Нидерланды – Швеция",              stage:"gs",  hype:9,  venue:"Бостон"},
-  {id:34, year:2026, month:6, day:21, hour:1,  minute:0,  date:"21.06 Вс", gmt5:"01:00", teams:"Германия – Кот-д'Ивуар",          stage:"gs",  hype:8,  venue:"Даллас"},
+  {id:34, year:2026, month:6, day:21, hour:1,  minute:0,  date:"21.06 Вс", gmt5:"01:00", teams:"Германия – Клот-д'Ивуар",          stage:"gs",  hype:8,  venue:"Даллас"},
   {id:35, year:2026, month:6, day:21, hour:7,  minute:0,  date:"21.06 Вс", gmt5:"07:00", teams:"Эквадор – Кюрасао",               stage:"gs",  hype:4,  venue:"Хьюстон"},
   {id:36, year:2026, month:6, day:21, hour:9,  minute:0,  date:"21.06 Вс", gmt5:"09:00", teams:"Тунис – Япония",                   stage:"gs",  hype:5,  venue:"Канзас-Сити"},
   {id:37, year:2026, month:6, day:21, hour:21, minute:0,  date:"21.06 Вс", gmt5:"21:00", teams:"Испания – Саудовская Аравия",      stage:"gs",  hype:7,  venue:"Атланта"},
@@ -299,9 +302,36 @@ const matches = [
 ];
 
 let works = [];
-try { works = JSON.parse(localStorage.getItem('wc26works_v4') || '[]'); } catch(e) {}
 
-// Отрисовка судьи на чистом SVG с динамическим углом поднятия руки (от 1 до 10 -> от 0 до 90 градусов)
+// Функция загрузки данных из облачной базы данных kvdb.io
+async function loadFromSharedStorage() {
+  try {
+    const response = await fetch(DB_URL);
+    if (response.ok) {
+      works = await response.json();
+    } else if (response.status === 404) {
+      works = []; // База пока пустая, это нормально
+    }
+  } catch (e) {
+    console.error("Ошибка сети при загрузке базы данных:", e);
+  }
+  render();
+}
+
+// Функция сохранения данных в облачную базу данных
+async function saveToSharedStorage() {
+  try {
+    await fetch(DB_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(works)
+    });
+  } catch (e) {
+    alert("Критическая ошибка: Не удалось сохранить данные в общую БД!");
+    console.error(e);
+  }
+}
+
 function getRefereeSvg(hype) {
   const angle = ((hype - 1) / 9) * 90;
   return `
@@ -319,23 +349,18 @@ function getRefereeSvg(hype) {
   `;
 }
 
-// Перевод даты и времени матча в минуты с начала эпохи (надежный способ сравнения без таймзон)
 function getMatchTimeRange(m) {
-  // Браузерный безопасный парсинг даты
   const startMs = Date.UTC(m.year, m.month - 1, m.day, m.hour, m.minute);
-  const endMs = startMs + (110 * 60 * 1000); // +110 минут на матч
+  const endMs = startMs + (110 * 60 * 1000);
   return { start: startMs, end: endMs };
 }
 
-// Парсинг значения из input[type="datetime-local"] в миллисекунды локально
 function parseInputToMs(valStr) {
   if (!valStr) return 0;
   const parts = valStr.split('T');
   if (parts.length < 2) return 0;
   const dateParts = parts[0].split('-');
   const timeParts = parts[1].split(':');
-  
-  // Парсим как локальные компоненты времени без автоматических сдвигов UTC
   return Date.UTC(
     parseInt(dateParts[0]),
     parseInt(dateParts[1]) - 1,
@@ -350,10 +375,8 @@ function formatIsoToTime(ms) {
   return String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0');
 }
 
-// Поиск пересечений
 function worksConflictingWith(m) {
   const matchRange = getMatchTimeRange(m);
-
   return works.filter(w => {
     const workStart = parseInputToMs(w.start);
     const workEnd = parseInputToMs(w.end);
@@ -364,10 +387,6 @@ function worksConflictingWith(m) {
 
 function stageLabel(s) {
   return {gs:'ГС', r32:'1/32', r16:'1/16', qf:'ЧФ', sf:'ПФ', fin:'Финал'}[s] || s;
-}
-
-function saveToStorage() {
-  try { localStorage.setItem('wc26works_v4', JSON.stringify(works)); } catch(e) {}
 }
 
 function formatDisplayWorkTime(valStr) {
@@ -467,7 +486,7 @@ function closeModal() {
   document.getElementById('modalBg').className = 'modal-bg';
 }
 
-function saveWork() {
+async function saveWork() {
   const num = document.getElementById('workNum').value.trim();
   if (!num) { document.getElementById('workNum').focus(); return; }
   const start = document.getElementById('workStart').value;
@@ -476,24 +495,31 @@ function saveWork() {
   if (!start || !end) { alert('Укажите время начала и окончания работ!'); return; }
   if (new Date(start) >= new Date(end)) { alert('Время окончания должно быть строго позже начала!'); return; }
 
+  const btn = document.getElementById('btnSaveSubmit');
+  btn.disabled = true;
+  btn.textContent = 'Сохранение...';
+
   works.push({ num, start, end });
-  saveToStorage();
+  
+  await saveToSharedStorage();
   closeModal();
+  btn.disabled = false;
+  btn.textContent = 'Добавить работу';
   render();
 }
 
-function deleteWork(idx) {
+async function deleteWork(idx) {
   works.splice(idx, 1);
-  saveToStorage();
   render();
+  await saveToSharedStorage();
 }
 
-function clearAll() {
+async function clearAll() {
   if (!works.length) return;
-  if (!confirm('Удалить все запланированные работы?')) return;
+  if (!confirm('Удалить ВСЕ запланированные работы из общей базы данных?')) return;
   works = [];
-  saveToStorage();
   render();
+  await saveToSharedStorage();
 }
 
 document.getElementById('workEnd').addEventListener('keydown', e => { if (e.key === 'Enter') saveWork(); });
@@ -501,8 +527,8 @@ document.getElementById('modalBg').addEventListener('click', e => {
   if (e.target === document.getElementById('modalBg')) closeModal();
 });
 
-// Первичный запуск
-render();
+// Запуск приложения: сразу стягиваем данные из общего облака
+loadFromSharedStorage();
 </script>
 </body>
 </html>
